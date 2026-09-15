@@ -1,3 +1,4 @@
+import { useEffect, useRef } from 'react'
 import type { PointerEvent as ReactPointerEvent } from 'react'
 import type { ActionType, PlanLayer, PlannerState } from '../types'
 import { MAP_SIZE, TILES, TILE_BY_ID } from '../data'
@@ -27,6 +28,8 @@ interface Props {
     cityDrops: number
     digDrops: number
   }
+  zoom: number
+  onZoom: (next: number) => void
   onHover: (id: string | null) => void
   onTileClick: (id: string) => void
   onTilePointerDown: (id: string, event: ReactPointerEvent) => void
@@ -42,20 +45,46 @@ export function WorldMap({
   scheduleBanner,
   draggingTileId,
   holdings,
+  zoom,
+  onZoom,
   onHover,
   onTileClick,
   onTilePointerDown,
 }: Props) {
   const allianceById = Object.fromEntries(state.alliances.map((a) => [a.id, a]))
   const hovered = hoveredTileId ? TILE_BY_ID[hoveredTileId] : null
+  const stageRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    const el = stageRef.current
+    if (!el) return
+    const onWheel = (e: WheelEvent) => {
+      if (!(e.ctrlKey || e.metaKey)) return
+      e.preventDefault()
+      onZoom(zoom + (e.deltaY < 0 ? 0.1 : -0.1))
+    }
+    el.addEventListener('wheel', onWheel, { passive: false })
+    return () => el.removeEventListener('wheel', onWheel)
+  }, [zoom, onZoom])
 
   return (
     <div className="map-wrap">
       <MapDayLegend {...holdings} />
       {scheduleBanner && <div className="map-banner">{scheduleBanner}</div>}
+      <div className="map-zoom">
+        <button type="button" onClick={() => onZoom(zoom - 0.15)} aria-label="Zoom out">
+          −
+        </button>
+        <button type="button" onClick={() => onZoom(1)} title="Reset zoom">
+          {Math.round(zoom * 100)}%
+        </button>
+        <button type="button" onClick={() => onZoom(zoom + 0.15)} aria-label="Zoom in">
+          +
+        </button>
+      </div>
       <div className="map-frame">
-        <div className="map-stage">
-          <div className="map-board">
+        <div className="map-stage" ref={stageRef}>
+          <div className="map-board" style={{ ['--zoom' as string]: String(zoom) }}>
             <span className="map-corner" />
             <div className="map-col-labels">
               {Array.from({ length: MAP_SIZE }, (_, i) => (

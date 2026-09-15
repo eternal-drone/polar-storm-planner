@@ -51,8 +51,9 @@ npm run dev
 2. **Schedule captures** — Click a day under the map, then click tiles to add takes. Or **drag a tile onto a day**. Switch that day to **Drop** when you are at cap. Hold **Alt** while dropping a dragged tile to schedule a drop.
 3. **Watch the caps** — Max **6 cities** and **4 strongholds**, **2 city takes** and **2 stronghold takes** per day. If a day goes over cap, a red drop notice appears inside that day’s box with one-click drop targets.
 4. **Holdings panel** — Top-left of the map shows cities and strongholds **held** on the selected day vs **proposed**.
-5. **Other alliances** — Add tags in the sidebar and paint them on the same layers to deconflict.
-6. **Save / share** — **Export** downloads a JSON backup. **Import** loads one. The current plan also auto-saves in this browser.
+5. **Map size** — Use **+ / −** (top-right of the map) to zoom, or Ctrl/Cmd + scroll. **Minimize** the plan or schedule panes, drag their edges to resize, or toggle **plan pane** / **schedule** in the top bar so the map can fill the window.
+6. **Other alliances** — Add tags in the sidebar and paint them on the same layers to deconflict.
+7. **Save / share** — **Export** downloads a JSON backup. **Import** loads one. The current plan also auto-saves in this browser.
 
 ## Season 2 rules built in
 

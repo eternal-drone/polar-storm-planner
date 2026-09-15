@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent } from 'react'
+import { useEffect, useMemo, useRef, useState, type CSSProperties, type PointerEvent as ReactPointerEvent } from 'react'
 import { WorldMap } from './components/WorldMap'
 import { Sidebar } from './components/Sidebar'
 import { ScheduleBoard } from './components/ScheduleBoard'
@@ -27,6 +27,39 @@ interface TileDrag {
   overDay: number | null
 }
 
+const LAYOUT_KEY = 'lw-s2-layout-v1'
+const SIDE_MIN = 240
+const SIDE_MAX = 560
+const SCHED_MIN = 140
+const SCHED_MAX = 520
+
+interface LayoutPrefs {
+  side: number
+  sched: number
+  sideOpen: boolean
+  schedOpen: boolean
+  zoom: number
+}
+
+function defaultLayout(): LayoutPrefs {
+  return { side: 320, sched: 200, sideOpen: true, schedOpen: true, zoom: 1 }
+}
+
+function loadLayout(): LayoutPrefs {
+  try {
+    const raw = localStorage.getItem(LAYOUT_KEY)
+    if (!raw) return defaultLayout()
+    const parsed = JSON.parse(raw) as Partial<LayoutPrefs>
+    return { ...defaultLayout(), ...parsed }
+  } catch {
+    return defaultLayout()
+  }
+}
+
+function clamp(n: number, min: number, max: number) {
+  return Math.min(max, Math.max(min, n))
+}
+
 export default function App() {
   const [state, setState] = useState<PlannerState>(() => loadState())
   const [activeLayer, setActiveLayer] = useState<PlanLayer>('current')
@@ -47,10 +80,15 @@ export default function App() {
   const [status, setStatus] = useState('')
   const [tileDrag, setTileDrag] = useState<TileDrag | null>(null)
   const skipClickRef = useRef<string | null>(null)
+  const [layout, setLayout] = useState<LayoutPrefs>(() => loadLayout())
 
   useEffect(() => {
     saveState(state)
   }, [state])
+
+  useEffect(() => {
+    localStorage.setItem(LAYOUT_KEY, JSON.stringify(layout))
+  }, [layout])
 
   const paintId = state.alliances.some((a) => a.id === paintAllianceId)
     ? paintAllianceId
@@ -185,6 +223,37 @@ export default function App() {
     window.addEventListener('pointercancel', end)
   }
 
+  function setZoom(next: number) {
+    setLayout((prev) => ({ ...prev, zoom: clamp(Math.round(next * 20) / 20, 0.7, 2.5) }))
+  }
+
+  function startResize(kind: 'side' | 'sched', event: ReactPointerEvent) {
+    if (event.button !== 0) return
+    event.preventDefault()
+    const pointerId = event.pointerId
+    const startX = event.clientX
+    const startY = event.clientY
+    const startSide = layout.side
+    const startSched = layout.sched
+    const move = (ev: PointerEvent) => {
+      if (ev.pointerId !== pointerId) return
+      if (kind === 'side') {
+        const next = clamp(startSide - (ev.clientX - startX), SIDE_MIN, SIDE_MAX)
+        setLayout((prev) => ({ ...prev, side: next }))
+      } else {
+        const next = clamp(startSched - (ev.clientY - startY), SCHED_MIN, SCHED_MAX)
+        setLayout((prev) => ({ ...prev, sched: next }))
+      }
+    }
+    const end = (ev: PointerEvent) => {
+      if (ev.pointerId !== pointerId) return
+      window.removeEventListener('pointermove', move)
+      window.removeEventListener('pointerup', end)
+    }
+    window.addEventListener('pointermove', move)
+    window.addEventListener('pointerup', end)
+  }
+
   function selectDay(day: number) {
     setSelectedDay(day)
     setSelectedWeek(Math.ceil(day / 7))
@@ -222,7 +291,15 @@ export default function App() {
   }
 
   return (
-    <div className="app">
+    <div
+      className={`app ${layout.sideOpen ? '' : 'side-min'} ${layout.schedOpen ? '' : 'sched-min'}`}
+      style={
+        {
+          '--side': `${layout.side}px`,
+          '--sched': `${layout.sched}px`,
+        } as CSSProperties
+      }
+    >
       <header className="topbar">
         <div className="brand">
           <span className="mark">S2</span>
@@ -265,6 +342,22 @@ export default function App() {
               onChange={(e) => setVisible((v) => ({ ...v, thermal: e.target.checked }))}
             />
             thermal
+          </label>
+          <label>
+            <input
+              type="checkbox"
+              checked={layout.sideOpen}
+              onChange={(e) => setLayout((p) => ({ ...p, sideOpen: e.target.checked }))}
+            />
+            plan pane
+          </label>
+          <label>
+            <input
+              type="checkbox"
+              checked={layout.schedOpen}
+              onChange={(e) => setLayout((p) => ({ ...p, schedOpen: e.target.checked }))}
+            />
+            schedule
           </label>
         </div>
         <div className="top-actions">
@@ -318,11 +411,23 @@ export default function App() {
           cityDrops: todayDrops.cities,
           digDrops: todayDrops.digs,
         }}
+        zoom={layout.zoom}
+        onZoom={setZoom}
         onHover={setHoveredTileId}
         onTileClick={onTileClick}
         onTilePointerDown={onTilePointerDown}
       />
 
+      <div className="sidebar-slot">
+      {layout.sideOpen && (
+        <div
+          className="resizer resizer-x"
+          onPointerDown={(e) => startResize('side', e)}
+          role="separator"
+          aria-orientation="vertical"
+          aria-label="Resize plan pane"
+        />
+      )}
       <Sidebar
         state={state}
         selectedTileId={selectedTileId}
@@ -357,8 +462,21 @@ export default function App() {
           }))
         }
         onSelectTile={setSelectedTileId}
+        collapsed={!layout.sideOpen}
+        onTogglePane={() => setLayout((p) => ({ ...p, sideOpen: !p.sideOpen }))}
       />
+      </div>
 
+      <div className="schedule-slot">
+      {layout.schedOpen && (
+        <div
+          className="resizer resizer-y"
+          onPointerDown={(e) => startResize('sched', e)}
+          role="separator"
+          aria-orientation="horizontal"
+          aria-label="Resize schedule pane"
+        />
+      )}
       <ScheduleBoard
         state={state}
         snapshots={snapshots}
@@ -375,7 +493,10 @@ export default function App() {
         onPaintMap={() => setEditMode('paint')}
         dragOverDay={tileDrag?.overDay ?? null}
         dragging={Boolean(tileDrag)}
+        collapsed={!layout.schedOpen}
+        onTogglePane={() => setLayout((p) => ({ ...p, schedOpen: !p.schedOpen }))}
       />
+      </div>
 
       {tileDrag && (
         <div className="drag-ghost" style={{ left: tileDrag.x, top: tileDrag.y }}>

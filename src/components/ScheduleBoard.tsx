@@ -26,6 +26,8 @@ interface Props {
   onPaintMap: () => void
   dragOverDay: number | null
   dragging: boolean
+  collapsed: boolean
+  onTogglePane: () => void
 }
 
 function unlockNote(day: number) {
@@ -57,12 +59,24 @@ export function ScheduleBoard({
   onPaintMap,
   dragOverDay,
   dragging,
+  collapsed,
+  onTogglePane,
 }: Props) {
   const start = (selectedWeek - 1) * 7 + 1
   const days = Array.from({ length: 7 }, (_, i) => start + i).filter((d) => d <= SEASON_DAYS)
   const allianceById = Object.fromEntries(state.alliances.map((a) => [a.id, a]))
   const selectedSnap = snapshots[selectedDay - 1]
   const scheduling = editMode === 'schedule'
+
+  if (collapsed) {
+    return (
+      <section className="schedule collapsed">
+        <button type="button" className="pane-restore wide" onClick={onTogglePane}>
+          Capture schedule · click to expand
+        </button>
+      </section>
+    )
+  }
 
   return (
     <section className={`schedule ${scheduling ? 'editing' : ''} ${dragging ? 'receiving' : ''}`}>
@@ -80,6 +94,9 @@ export function ScheduleBoard({
             Done · paint map
           </button>
         )}
+        <button type="button" className="text-btn" onClick={onTogglePane} aria-label="Minimize schedule pane">
+          Minimize
+        </button>
         <div className="week-tabs">
           {Array.from({ length: 8 }, (_, i) => i + 1).map((week) => (
             <button

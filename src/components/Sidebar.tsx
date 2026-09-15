@@ -27,6 +27,8 @@ interface Props {
   onSchedule: (tileId: string, type: 'capture' | 'drop') => void
   onClearTile: (tileId: string) => void
   onSelectTile: (tileId: string) => void
+  collapsed: boolean
+  onTogglePane: () => void
 }
 
 const LAYERS: PlanLayer[] = ['current', 'proposed', 'final']
@@ -175,6 +177,8 @@ export function Sidebar({
   onSchedule,
   onClearTile,
   onSelectTile,
+  collapsed,
+  onTogglePane,
 }: Props) {
   const tile = selectedTileId ? TILE_BY_ID[selectedTileId] : null
   const our = state.ourAllianceId
@@ -183,8 +187,24 @@ export function Sidebar({
   const allianceById = Object.fromEntries(state.alliances.map((a) => [a.id, a]))
   const painter = allianceById[paintAllianceId]
 
+  if (collapsed) {
+    return (
+      <aside className="sidebar collapsed">
+        <button type="button" className="pane-restore" onClick={onTogglePane}>
+          Plan
+        </button>
+      </aside>
+    )
+  }
+
   return (
     <aside className="sidebar">
+      <div className="pane-bar">
+        <strong>Plan</strong>
+        <button type="button" className="text-btn" onClick={onTogglePane} aria-label="Minimize plan pane">
+          Minimize
+        </button>
+      </div>
       <section className="card paint-card">
         <header>
           <h3>1. Choose plan layer</h3>
